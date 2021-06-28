@@ -1,0 +1,173 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+API credentials are stored in a config file and not part of version control.
+See README.md for details.
+
+```{r}
+library(config)
+
+# Create the data directories if they don't exist.
+if (!dir.exists("data")) {
+  dir.create("data")
+}
+if (!dir.exists("scratch_data")) {
+  dir.create("scratch_data")
+}
+
+```
+
+Get 50k tweets on vaccination.
+
+```{r}
+library(rtweet)
+library(dplyr)
+library(stringr)
+library(lubridate)
+library(leaflet)
+library(syuzhet)
+library(data.table)
+
+fname_unique_tweets <- "scratch_data/unique_tweets.rda"
+
+# Don't repeat the twitter API call if we've already saved its results.
+# It's expensive.
+if (file.exists(fname_unique_tweets)) {
+  load(fname_unique_tweets)
+} else {
+  mytoken <- create_token(
+    app = config::get("twitter_app"),
+    consumer_key = config::get("consumer_key"),
+    consumer_secret = config::get("consumer_secret"),
+    access_token = config::get("access_token"),
+    access_secret = config::get("access_secret"),
+  )
+  
+  # For some reason this is only pulling about 28k before it quits, so...
+  tweets <-
+    search_tweets(
+      "#vaccinated",
+      n = 50000,
+      token = mytoken,
+      retryonratelimit = T
+    )
+  # Do it twice
+  tweets2 <-
+    search_tweets(
+      "#vaccinated",
+      n = 50000,
+      token = mytoken,
+      retryonratelimit = T
+    )
+  # Merge the datasets
+  merged_tweets <- rbind(tweets, tweets2)
+  # Remove duplicates
+  unique_tweets <- distinct(merged_tweets)
+  # And on our main run, we're left with about 40k.
+  save(unique_tweets, file = fname_unique_tweets)
+}
+```
+
+Now we'll use Google's Geocoding API to try to locate the tweets with specified locations, as best we can.
+
+```{r}
+
+# Extract tweets with location data
+unique_tweets_withlocation <- unique_tweets[unique_tweets$location !="",]
+# This leaves us about 27.7k.
+
+# Prepare the storage columns for lat and long if they don't exist
+if (!"lat_google" %in% names(unique_tweets_withlocation)) {
+  unique_tweets_withlocation$lat_google <- NA_real_
+}
+if (!"lng_google" %in% names(unique_tweets_withlocation)) {
+  unique_tweets_withlocation$lng_google <- NA_real_
+}
+
+# Loop over the tweets and fill in lat & long
+tweet_count <- nrow(unique_tweets_withlocation)
+for (i in 1:tweet_count) {
+  # Don't re-do if there's already data
+  if (is.na(unique_tweets_withlocation[i,]$lat_google)) {
+    # Use teh google
+    try(geodata <-
+          lookup_coords(unique_tweets_withlocation[i, ]$location,
+                        apikey = config::get("google_geocoding_apikey")))
+    found_data <- !is.null(geodata$point)
+    
+    # If we got something back, store it.
+    if (found_data) {
+      unique_tweets_withlocation[i,]$lat_google <- geodata$point[1]
+      unique_tweets_withlocation[i,]$lng_google <- geodata$point[2]
+    }
+    
+    print(paste0("iteration ", i, " of ", tweet_count, ": ",
+                 ifelse(found_data, 
+                        paste0(unique_tweets_withlocation[i,]$location,
+                               " is ",
+                               geodata$point[1],
+                               ", ",
+                               geodata$point[2]),
+                        "no location data")
+                )
+          )
+    # Sleep for one second so we don't get in trouble.
+    Sys.sleep(1)
+  }
+}
+
+# Save the location data.
+save(unique_tweets_withlocation, file="scratch_data/unique_tweets_withlocation.rda")
+
+# Get the tweets we were able to locate.
+located_tweets <- unique_tweets_withlocation[!is.na(unique_tweets_withlocation$lat_google),]
+save(located_tweets, file="scratch_data/located_tweets.rda")
+# load("scratch_data/located_tweets.rda")
+
+# Remove @mentions from the tweets before running sentiment analysis.
+regexp_mention <- "@\\w+"
+# Also strip emoticons and non-ascii characters.
+# H/T https://stackoverflow.com/a/65899241/13603796
+# only_ascii_regexp <- '[^\u0001-\u007F]+|<U\\+\\w+>'
+
+located_tweets$text <- located_tweets$text %>%
+  str_replace_all(regex(regexp_mention), "")
+
+# Created a created_date field of just the date
+located_tweets$created_date <- located_tweets$created_at %>%
+  with_tz("America/New_York") %>%
+  as.Date()
+# Create a factor version of this field for grouping
+located_tweets$date_label <- as.factor(located_tweets$created_date)
+
+#extract sentiments
+sentiment <- get_nrc_sentiment(located_tweets$text)
+
+#combine the data frame containing sentiment scores and the original data frame containing tweets and other Twitter metadata
+located_tweets_senti <- cbind(located_tweets, sentiment)
+
+#aggregate the data by dates and screennames
+located_tweets_senti_aggregated <- located_tweets_senti %>% 
+  group_by(date_label,screen_name) %>%
+  summarise(anger = mean(anger), 
+            anticipation = mean(anticipation), 
+            disgust = mean(disgust), 
+            fear = mean(fear), 
+            joy = mean(joy), 
+            sadness = mean(sadness), 
+            surprise = mean(surprise), 
+            trust = mean(trust)) %>% 
+  reshape2::melt()
+
+located_tweets_senti_aggregated$day <- as.Date(located_tweets_senti_aggregated$date_label)
+
+save(located_tweets_senti, file="data/located_tweets_senti.rda")
+save(located_tweets_senti_aggregated, file="data/located_tweets_senti_aggregated.rda")
+```
+
