@@ -38,7 +38,7 @@ created by `get_and_prepare_tweets.Rmd` above.
 
 You can see it running [here](https://stevelinberg.shinyapps.io/697DB_final_project/).
 
-Steve Linberg
-https://slinberg.net
-steve@slinberg.net
+Steve Linberg  
+https://slinberg.net  
+steve@slinberg.net  
 
