@@ -36,7 +36,7 @@ to it. `data/located_tweets_senti.rda` is loaded by app.R.
 This is the Shiny application. It loads the `data/located_tweets_senti.rda` file
 created by `get_and_prepare_tweets.Rmd` above.
 
-You can see it running [here](https://stevelinberg.shinyapps.io/697DB_final_project/).
+You can see it running at https://stevelinberg.shinyapps.io/697DB_final_project/.
 
 Steve Linberg  
 https://slinberg.net  
