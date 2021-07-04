@@ -70,132 +70,17 @@ ui <- fluidPage(
     ),
     
     helpText(
-        "See",
-        a("discussion", href = "#discussion"),
-        "at bottom. Source code at ",
+        a("[Skip to the controls", href = "#controls"),
+        "or directly to the",
+        a("app", href = "#app"),
+        "below. Source code and data at ",
         a("github", href = "https://github.com/slinberg-umass/697DB-final", .noWS = c("outside")),
-        "."
+        ".]"
     ), 
-    
-    hr(), 
-
-    p(
-        "Choose the number of tweets to work with (",
-        strong("Caution", .noWS = c("outside")),
-        ": higher values slow down processing):",
-    ),
-    
-    sliderInput(
-        "tweet_count",
-        label = "Number of tweets:",
-        min = 100,
-        value = 1000,
-        max = nrow(located_tweets_senti),
-        width = "100%",
-        step = 100
-    ),
-    checkboxInput("disable_twitter_icons", "RECOMMENDED: disable twitter icons over 2,000 results", T, width="100%"),
-    
-
-    wellPanel(
-        p(strong("Optional:"),
-          "select one or more sentiments to filter by", ),
-        
-        checkboxGroupInput(
-            "type",
-            # label = (helpText(h5("sentiment type"))),
-            label = NULL,
-            
-            choices = sentiment_choices,
-            # selected = "trust",
-            inline = T
-        ),
-        
-        # Suppress minor ticks between integers;
-        # H/T https://stackoverflow.com/a/44474596/13603796
-        tags$style(type = "text/css", ".irs-grid-pol.small {height: 0px;}"),
-        sliderInput(
-            "senti_threshold",
-            label = "Sentiment threshold:",
-            min = 0,
-            value = 1,
-            max = highest_sentiment,
-            width = "30%",
-        ),
-        helpText(
-            p("Higher numbers are stronger; 0 means no sentiment")
-        ),
-        
-    ),
-    
-    
-    hr(), 
-    
-    fluidRow(
-        column(4,
-               wellPanel(
-                   sliderInput(
-                       "slider2",
-                       h3("min. retweet count for geo-mapping"),
-                       min = 0,
-                       max = 100,
-                       value = 30
-                   ),
-                   
-                   p(
-                       class = "text-muted",
-                       paste(
-                           "Use the slider to adjust the data displayed based on retweet minimums."
-                       )
-                   ),
-                   
-               ),),
-        column(8,
-               textOutput("mymap_min_count"),
-               leafletOutput("mymap"),)
-        
-    ),
-    
-    hr(),
-    
-    fluidRow(column(
-        4,
-        wellPanel(
-            radioButtons(
-                "radio",
-                label = h3("Show in wordcloud"),
-                choices = list(
-                    "#hashtags only" = 1,
-                    "non-#hashtags only" = 2,
-                    "everything" = 3
-                ),
-                selected = 1
-            ),
-            
-            p(
-                class = "text-muted",
-                paste(
-                    "Specify whether to show hashtags, non-hashtags, or both in the wordcloud"
-                )
-            ),
-            sliderInput(
-                "slider1",
-                h3("min. retweet count for wordcloud"),
-                min = 0,
-                max = 100,
-                value = 30
-            ),
-        )
-    ),
-    column(
-        8,
-        textOutput("wordcloud_min_count"),
-        plotOutput("wordcloud"),
-    )),
     
     hr(),
     h2("Disussion", id="discussion"),
-    markdown("This section contains working notes and details for the application.
+    markdown("
     ### Purpose and scope
     The purpose of this application is to explore a set of Twitter data, based
     on the presence of a hashtag, looking at location data, sentiment, and 
@@ -271,7 +156,138 @@ ui <- fluidPage(
     icons; the `leaflet` function doesn't switch them, perhaps due to internal 
     caching?
     
-             ")
+    ### Contact
+    
+    Steve Linberg<br />
+    steve@slinberg.net<br />
+    https://slinberg.net
+             "),
+    
+    hr(),
+    p(
+        "Choose the number of tweets to work with (",
+        strong("Caution", .noWS = c("outside")),
+        ": higher values significantly slow down processing):",
+        id="controls"
+    ),
+    
+    p("It is strongly recommended to keep the number under 3,000 or so unless filtering by one or more sentiments or using high retweet counts for the map (below). For best performance, set the filters first and then increase the number of tweets afterwards."),
+    
+    sliderInput(
+        "tweet_count",
+        label = "Number of tweets:",
+        min = 100,
+        value = 1000,
+        max = nrow(located_tweets_senti),
+        width = "100%",
+        step = 100
+    ),
+    
+    # This works, but the code to switch between the empty set and the non-empty
+    # set doesn't work at this point; the map refreshes, but not the icons.
+    # checkboxInput("disable_twitter_icons", "RECOMMENDED: disable twitter icons over 2,000 results", T, width="100%"),
+    
+
+    wellPanel(
+        p(strong("Optional:"),
+          "select one or more sentiments to filter by", ),
+        
+        checkboxGroupInput(
+            "type",
+            # label = (helpText(h5("sentiment type"))),
+            label = NULL,
+            
+            choices = sentiment_choices,
+            # selected = "trust",
+            inline = T
+        ),
+        
+        # Suppress minor ticks between integers;
+        # H/T https://stackoverflow.com/a/44474596/13603796
+        tags$style(type = "text/css", ".irs-grid-pol.small {height: 0px;}"),
+        sliderInput(
+            "senti_threshold",
+            label = "Sentiment threshold:",
+            min = 0,
+            value = 1,
+            max = highest_sentiment,
+            width = "30%",
+        ),
+        helpText(
+            p("Higher numbers are stronger; 0 means no sentiment. For best results, set these controls to 3 or higher. Low settings are mostly useful for seeing the limits of sentiment detection on Tweet-sized chunks.")
+        ),
+        
+    ),
+    
+    
+    hr(id = "app"), 
+    
+    fluidRow(
+        column(4,
+               wellPanel(
+                   sliderInput(
+                       "slider2",
+                       h3("min. retweet count for geo-mapping"),
+                       min = 0,
+                       max = 100,
+                       value = 30
+                   ),
+                   
+                   helpText(
+                       p("Use the slider to adjust the data displayed based on retweet minimums."),
+                       p("Set to 0 to show all tweets whether or not retweeting occurred.")
+                   )
+                   
+               ),),
+        column(8,
+               textOutput("mymap_min_count"),
+               leafletOutput("mymap"),)
+        
+    ),
+    
+    hr(),
+    
+    fluidRow(column(
+        4,
+        wellPanel(
+            radioButtons(
+                "radio",
+                label = h3("Show in wordcloud"),
+                choices = list(
+                    "#hashtags only" = 1,
+                    "non-#hashtags only" = 2,
+                    "everything" = 3
+                ),
+                selected = 1
+            ),
+            
+            p(
+                class = "text-muted",
+                paste(
+                    "Specify whether to show hashtags, non-hashtags, or both in the wordcloud"
+                )
+            ),
+            
+            sliderInput(
+                "slider1",
+                h3("min. retweet count for wordcloud"),
+                min = 0,
+                max = 100,
+                value = 30
+            ),
+            helpText(
+                p("Use the slider to adjust the data displayed based on retweet minimums."),
+                p("Set to 0 to show all tweets whether or not retweeting occurred.")
+            )
+        )
+    ),
+    column(
+        8,
+        textOutput("wordcloud_min_count"),
+        plotOutput("wordcloud"),
+    )),
+    
+
     
 )
 
@@ -307,8 +323,8 @@ server <- function(input, output) {
 
     # XXX this works, but the `leaflet` call doesn't seem to use the result.
     usericon_reactive <- reactive({
-        # print(paste("Calling reactive usericon, control value is", input$disable_twitter_icons))
-        return(ifelse(input$disable_twitter_icons == T, emptyicon, usericon))
+        print(paste("Calling reactive usericon, control value is", input$disable_twitter_icons))
+        return(ifelse(input$disable_twitter_icons == F, emptyicon, usericon))
     })
     
     # Enable or disable the sentiment threshold slider depending on whether
@@ -322,7 +338,8 @@ server <- function(input, output) {
         }
     },
     # ignoreNull = F needed to fire event when last checkbox is unchecked
-    ignoreNULL = F)
+    ignoreNULL = F
+    )
     
     output$wordcloud <- renderPlot({
 
@@ -384,7 +401,8 @@ server <- function(input, output) {
                 lat = ~ lat,
                 popup = ~ as.character(text),
                 # XXX this isn't working
-                icon = usericon_reactive()
+                # icon = usericon_reactive()
+                icon = usericon
             ) %>%
             addProviderTiles("Stamen.TonerLite") %>%  #more layers:http://leaflet-extras.github.io/leaflet-providers/preview/
             addCircleMarkers(stroke = FALSE, fillOpacity = 0.5)
